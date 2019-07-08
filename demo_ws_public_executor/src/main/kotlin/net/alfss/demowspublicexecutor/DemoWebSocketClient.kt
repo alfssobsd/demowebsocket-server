@@ -1,6 +1,4 @@
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import net.alfss.demowscommon.entities.WsCommandEntity
-import net.alfss.demowscommon.entities.WsCommandTypeEntity
 import net.alfss.demowscommon.entities.WsInputMessageEntity
 import net.alfss.demowscommon.entities.WsInputMessageTypeEntity
 import org.springframework.web.reactive.socket.client.ReactorNettyWebSocketClient
