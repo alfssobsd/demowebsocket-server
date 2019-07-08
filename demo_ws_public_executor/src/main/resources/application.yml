@@ -1,0 +1,6 @@
+app:
+  ws:
+    prefix-channel: "channel-"
+    prefix-channel-history: "channel-history-"
+    prefix-connection-queue: "connection-"
+    keepalive-timeout-in-seconds: 5

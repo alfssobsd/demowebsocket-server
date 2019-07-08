@@ -1,0 +1,10 @@
+app:
+  port: 8001
+  ws:
+    prefix-channel: "channel-"
+    prefix-channel-history: "channel-history-"
+    max-history-life-time-in-seconds: 30
+    max-connection-time-in-seconds: 180
+
+server:
+  port: ${app.port}
