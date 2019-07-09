@@ -18,6 +18,7 @@ class ProcessingInputMessageUseCase(
 
     //TODO:Переписать обработчик
     fun execute(session: WebSocketSession, connQueueName: String): Mono<Void> {
+        logger.info("Processing input message")
         return session.receive()
             .filter { it.type == WebSocketMessage.Type.TEXT }
             .map { wsInputMessageMapper.toMessage(it.payloadAsText) }
@@ -32,6 +33,6 @@ class ProcessingInputMessageUseCase(
                     WsInputMessageTypeEntity.UNSUBSCRIBE -> logger.info("UNSUBSCRIBE")
                     WsInputMessageTypeEntity.PONG -> logger.info("PONG")
                 }
-            }.then()
+            }.log().then()
     }
 }

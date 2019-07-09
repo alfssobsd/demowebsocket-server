@@ -110,9 +110,11 @@ class SendMessageUseCase(
                 }
             }
             .doOnComplete {
-                logger.info("[$channelName] removing expired subscriptions")
-                redisTemplate.opsForList().trim(channelName, 0L, subscriptionPositionNumber)
-                    .subscribe()
+                if (subscriptionPositionNumber < -1L) {
+                    logger.info("[$channelName] removing expired subscriptions")
+                    redisTemplate.opsForList().trim(channelName, 0L, subscriptionPositionNumber)
+                        .subscribe()
+                }
             }.then()
 
     }
