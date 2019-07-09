@@ -55,7 +55,7 @@ class SendMessageUseCase(
     }
 
     private fun addMessageToHistory(historyChannelName: String, message: InternalMessageEntity): Mono<Void> {
-        logger.info("[$historyChannelName] add new message to history")
+        logger.info("Adding $message to history channel = $historyChannelName")
         return redisTemplate.opsForList().leftPush(historyChannelName, internalMessageMapper.toJson(message)).then()
     }
 
@@ -65,7 +65,7 @@ class SendMessageUseCase(
             .map { internalMessageMapper.toMessage(it) }
             .filter { it.typeMessage == InternalMessageTypeEntity.SUBSCRIPTION }
             .doOnNext {
-                logger.info("[$prefixChannel$channelName] send message to ${it.payload}")
+                logger.info("Sending message $message conn = ${it.payload} channel = $channelName")
                 redisTemplate.convertAndSend(it.payload, internalMessageMapper.toJson(message)).subscribe()
             }.then()
     }
@@ -77,13 +77,15 @@ class SendMessageUseCase(
             .filter { it.typeMessage == InternalMessageTypeEntity.TEXT_MESSAGE }
             .doOnNext {
                 if (Timestamp(it.createdAt.time + historyLifeTimeSeconds * 1000) < currentTime) {
-                    logger.info("Mark expired message ${it.createdAt} + $historyLifeTimeSeconds seconds < $currentTime")
+                    logger.info("Marking expired message ${it.createdAt} + $historyLifeTimeSeconds seconds < $currentTime")
                     historyPositionNumber -= 1L
                 }
             }.doOnComplete {
-                logger.info("[$historyChannelName] removing expired messages")
-                redisTemplate.opsForList().trim(historyChannelName, 0L, historyPositionNumber)
-                    .subscribe()
+                if (historyPositionNumber < -1L) {
+                    logger.info("Removing expired messages channel = $historyChannelName")
+                    redisTemplate.opsForList().trim(historyChannelName, 0L, historyPositionNumber)
+                        .subscribe()
+                }
             }.then()
     }
 
@@ -100,18 +102,18 @@ class SendMessageUseCase(
             .filter { it.typeMessage == InternalMessageTypeEntity.SUBSCRIPTION }
             .doOnNext {
                 if (Timestamp(it.createdAt.time + subscribeLifeTimeSeconds * 1000) < currentTime) {
-                    logger.info("Mark expired subscription ${it.createdAt} + $subscribeLifeTimeSeconds seconds < $currentTime")
+                    logger.info("Marking expired subscription ${it.createdAt} + $subscribeLifeTimeSeconds seconds < $currentTime")
                     subscriptionPositionNumber -= 1L
 
                     //Стоит ли вообще вышибать клиента или сделать лучше обнавление подписки?
-                    logger.info("Send disconnect command to ${it.payload}")
+                    logger.info("Sending disconnect command conn =  ${it.payload}")
                     redisTemplate.convertAndSend(it.payload, internalMessageMapper.toJson(disconnectMessage))
                         .subscribe()
                 }
             }
             .doOnComplete {
                 if (subscriptionPositionNumber < -1L) {
-                    logger.info("[$channelName] removing expired subscriptions")
+                    logger.info("Removing expired subscriptions channel = $channelName")
                     redisTemplate.opsForList().trim(channelName, 0L, subscriptionPositionNumber)
                         .subscribe()
                 }

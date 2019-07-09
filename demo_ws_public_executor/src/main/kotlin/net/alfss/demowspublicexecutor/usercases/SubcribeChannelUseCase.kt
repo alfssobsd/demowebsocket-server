@@ -4,11 +4,12 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.ReactiveRedisTemplate
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import net.alfss.demowscommon.entities.InternalMessageEntity
 import net.alfss.demowscommon.entities.InternalMessageTypeEntity
+import net.alfss.demowscommon.entities.WsOutputMessageEntity
+import net.alfss.demowscommon.entities.WsOutputMessageTypeEntity
 import net.alfss.demowscommon.utils.InternalMessageMapperUtil
-import org.springframework.beans.factory.annotation.Value
+import net.alfss.demowscommon.utils.WsOutputMessageMapperUtil
 import org.springframework.web.reactive.socket.WebSocketSession
 import java.sql.Timestamp
 
@@ -16,20 +17,19 @@ import java.sql.Timestamp
 @Service
 class SubcribeChannelUseCase(
     private val redisTemplate: ReactiveRedisTemplate<String, String>,
-    private val internalMessageMapper: InternalMessageMapperUtil
+    private val internalMessageMapper: InternalMessageMapperUtil,
+    private val wsOutputMessageMapper: WsOutputMessageMapperUtil
 ) {
     private val logger = LoggerFactory.getLogger(SubcribeChannelUseCase::class.java)
-    val mapper = jacksonObjectMapper()
 
-    @Value("\${app.ws.prefix-channel}")
-    val prefixChannel = "channel-"
-
-    @Value("\${app.ws.prefix-channel-history}")
-    val prefixChannelHistory = "channel-history-"
-
-    fun execute(session: WebSocketSession, connQueueName: String, channelName: String): Mono<Void> {
+    fun execute(
+        session: WebSocketSession,
+        connQueueName: String,
+        channelName: String,
+        historyChannelName: String
+    ): Mono<Void> {
         //call AuthorizeUseCase before
-        logger.info("Subscribe conn=$connQueueName to channel $channelName")
+        logger.info("Subscribe conn=$connQueueName channel = $channelName")
         val subscribeEntity = InternalMessageEntity(
             typeMessage = InternalMessageTypeEntity.SUBSCRIPTION,
             payload = connQueueName,
@@ -37,19 +37,26 @@ class SubcribeChannelUseCase(
         )
 
         val subscribeToChannel = redisTemplate.opsForList()
-            .leftPush("$prefixChannel$channelName", internalMessageMapper.toJson(subscribeEntity)).log().then()
+            .leftPush(channelName, internalMessageMapper.toJson(subscribeEntity)).log().then()
 
         val readHistoryChannel = session.send(redisTemplate.opsForList()
-            .range("$prefixChannelHistory$channelName", 0, -1)
+            .range(historyChannelName, 0, -1)
             .map { internalMessageMapper.toMessage(it) }
             .filter { it.typeMessage == InternalMessageTypeEntity.TEXT_MESSAGE }
-            .map { it.payload }
+            .map { WsOutputMessageEntity(typeMessage = WsOutputMessageTypeEntity.DATA, payload = it.payload) }
+            .map {  wsOutputMessageMapper.toJson(it) }
             .map(session::textMessage)
             .doOnNext {
-                logger.info("Received message $it from history")
+                logger.info("Received history message $it channel = $historyChannelName")
             }
         )
 
-        return Mono.zip(readHistoryChannel, subscribeToChannel).then()
+        val sendResponseSubscribe = session.send(
+            Mono.just(WsOutputMessageEntity(typeMessage = WsOutputMessageTypeEntity.RESPONSE_SUBSCRIBE, payload = "SUBSCRIBE_OK($channelName)"))
+                .map { wsOutputMessageMapper.toJson(it) }
+                .map(session::textMessage)
+        )
+
+        return Mono.zip(sendResponseSubscribe, readHistoryChannel, subscribeToChannel).then()
     }
 }
