@@ -1,3 +1,5 @@
+package net.alfss.demowsclient
+
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import net.alfss.demowscommon.entities.WsInputMessageEntity
 import net.alfss.demowscommon.entities.WsInputMessageTypeEntity
@@ -17,7 +19,7 @@ fun main(args: Array<String>) {
     val json = mapper.writeValueAsString(subscribeCommand)
 
     val cliexc0 = client.execute(
-        URI.create("ws://localhost:8080/ws")
+        URI.create("ws://localhost:8000/ws")
     ) { session ->
         session.send(
             Mono.just(session.textMessage(json))
