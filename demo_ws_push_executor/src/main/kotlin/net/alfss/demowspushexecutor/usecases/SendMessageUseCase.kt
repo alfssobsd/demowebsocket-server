@@ -32,8 +32,7 @@ class SendMessageUseCase(
     @Value("\${app.ws.max-history-life-time-in-seconds}")
     val historyLifeTimeSeconds = 30L
 
-    fun execute(payload: String): Mono<Void> {
-        val channel = "tours/9d1cfe43-b917-4a22-8406-2494bedf3f72"
+    fun execute(channel: String, payload: String): Mono<Void> {
         val channelName = "$prefixChannel$channel"
         val historyChannelName = "$prefixChannelHistory$channel"
         val currentTime = Timestamp(System.currentTimeMillis())
