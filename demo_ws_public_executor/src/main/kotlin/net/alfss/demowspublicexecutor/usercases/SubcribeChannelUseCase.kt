@@ -10,7 +10,9 @@ import net.alfss.demowscommon.entities.WsOutputMessageEntity
 import net.alfss.demowscommon.entities.WsOutputMessageTypeEntity
 import net.alfss.demowscommon.utils.InternalMessageMapperUtil
 import net.alfss.demowscommon.utils.WsOutputMessageMapperUtil
+import org.springframework.data.domain.Range
 import org.springframework.web.reactive.socket.WebSocketSession
+import reactor.core.publisher.Flux
 import java.sql.Timestamp
 
 
@@ -36,20 +38,21 @@ class SubcribeChannelUseCase(
             createdAt = Timestamp(System.currentTimeMillis())
         )
 
-        val subscribeToChannel = redisTemplate.opsForList()
-            .leftPush(channelName, internalMessageMapper.toJson(subscribeEntity)).log().then()
+        val subscribeToChannel = redisTemplate.opsForZSet()
+            .add(channelName, internalMessageMapper.toJson(subscribeEntity), 1.0).log().then()
 
-        val readHistoryChannel = session.send(redisTemplate.opsForList()
-            .range(historyChannelName, 0, -1)
+        val readHistoryChannel = redisTemplate.opsForZSet()
+            .range(historyChannelName, Range(0L, -1L))
             .map { internalMessageMapper.toMessage(it) }
             .filter { it.typeMessage == InternalMessageTypeEntity.TEXT_MESSAGE }
-            .map { WsOutputMessageEntity(typeMessage = WsOutputMessageTypeEntity.DATA, payload = it.payload) }
-            .map {  wsOutputMessageMapper.toJson(it) }
-            .map(session::textMessage)
             .doOnNext {
+                session.send(
+                    Mono.just( WsOutputMessageEntity(typeMessage = WsOutputMessageTypeEntity.DATA, payload = it.payload))
+                        .map { entity -> wsOutputMessageMapper.toJson(entity) }
+                        .map(session::textMessage)
+                ).subscribe()
                 logger.info("Received history message $it channel = $historyChannelName")
-            }
-        )
+            }.then()
 
         val sendResponseSubscribe = session.send(
             Mono.just(WsOutputMessageEntity(typeMessage = WsOutputMessageTypeEntity.RESPONSE_SUBSCRIBE, payload = "SUBSCRIBE_OK($channelName)"))
@@ -57,6 +60,6 @@ class SubcribeChannelUseCase(
                 .map(session::textMessage)
         )
 
-        return Mono.zip(sendResponseSubscribe, readHistoryChannel, subscribeToChannel).then()
+        return readHistoryChannel.and(subscribeToChannel).and(sendResponseSubscribe).then()
     }
 }

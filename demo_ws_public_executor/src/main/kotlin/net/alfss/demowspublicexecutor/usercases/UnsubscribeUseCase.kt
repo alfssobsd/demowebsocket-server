@@ -6,6 +6,7 @@ import net.alfss.demowscommon.entities.WsOutputMessageTypeEntity
 import net.alfss.demowscommon.utils.InternalMessageMapperUtil
 import net.alfss.demowscommon.utils.WsOutputMessageMapperUtil
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.Range
 import org.springframework.data.redis.core.ReactiveRedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.web.reactive.socket.WebSocketSession
@@ -20,7 +21,6 @@ class UnsubscribeUseCase(
 ) {
     private val logger = LoggerFactory.getLogger(SubcribeChannelUseCase::class.java)
 
-    //TODO:need test
     fun execute(session: WebSocketSession, connQueueName: String, channelName: String): Mono<Void> {
         logger.info("Removing subscription conn = $connQueueName channel = $channelName")
 
@@ -30,19 +30,16 @@ class UnsubscribeUseCase(
                 .map(session::textMessage)
         )
 
-        val removeSubscription = redisTemplate.opsForList()
-            .range(channelName, 0, -1)
+        val removeSubscription = redisTemplate.opsForZSet()
+            .range(channelName, Range(0L, -1L))
             .map { internalMessageMapper.toMessage(it) }
             .filter { it.typeMessage == InternalMessageTypeEntity.SUBSCRIPTION }
             .filter { it.payload == connQueueName }
             .doOnNext {
-                redisTemplate.opsForList().remove(channelName, 1, internalMessageMapper.toJson(it)).subscribe()
-            }
-            .doOnComplete {
-                logger.info("Subscription removed conn = $connQueueName channel = $channelName")
-            }
-            .then()
+                redisTemplate.opsForZSet().remove(channelName, internalMessageMapper.toJson(it)).subscribe()
+                logger.info("Subscription removed conn = $connQueueName channel = $channelName ${internalMessageMapper.toJson(it)}")
+            }.then()
 
-        return Mono.zip(sendResponseUnsubscribe, removeSubscription).then()
+        return sendResponseUnsubscribe.and(removeSubscription).then()
     }
 }
