@@ -20,7 +20,8 @@ import java.sql.Timestamp
 class SubcribeChannelUseCase(
     private val redisTemplate: ReactiveRedisTemplate<String, String>,
     private val internalMessageMapper: InternalMessageMapperUtil,
-    private val wsOutputMessageMapper: WsOutputMessageMapperUtil
+    private val wsOutputMessageMapper: WsOutputMessageMapperUtil,
+    private val authorizeUseCase: AuthorizeUseCase
 ) {
     private val logger = LoggerFactory.getLogger(SubcribeChannelUseCase::class.java)
 
@@ -30,8 +31,22 @@ class SubcribeChannelUseCase(
         channelName: String,
         historyChannelName: String
     ): Mono<Void> {
-        //call AuthorizeUseCase before
         logger.info("Subscribe conn=$connQueueName channel = $channelName")
+
+        if (!authorizeUseCase.execute(channelName)) {
+            return session.send(
+                Mono.just(
+                    WsOutputMessageEntity(
+                        typeMessage = WsOutputMessageTypeEntity.RESPONSE_SUBSCRIBE,
+                        payload = "SUBSCRIBE_ACCESS_DENIED($channelName)",
+                        code = 403
+                    )
+                )
+                    .map { wsOutputMessageMapper.toJson(it) }
+                    .map(session::textMessage)
+            ).then()
+        }
+
         val subscribeEntity = InternalMessageEntity(
             typeMessage = InternalMessageTypeEntity.SUBSCRIPTION,
             payload = connQueueName,
@@ -47,7 +62,13 @@ class SubcribeChannelUseCase(
             .filter { it.typeMessage == InternalMessageTypeEntity.TEXT_MESSAGE }
             .doOnNext {
                 session.send(
-                    Mono.just( WsOutputMessageEntity(typeMessage = WsOutputMessageTypeEntity.DATA, payload = it.payload))
+                    Mono.just(
+                        WsOutputMessageEntity(
+                            typeMessage = WsOutputMessageTypeEntity.DATA,
+                            payload = it.payload,
+                            code = 200
+                        )
+                    )
                         .map { entity -> wsOutputMessageMapper.toJson(entity) }
                         .map(session::textMessage)
                 ).subscribe()
@@ -55,7 +76,13 @@ class SubcribeChannelUseCase(
             }.then()
 
         val sendResponseSubscribe = session.send(
-            Mono.just(WsOutputMessageEntity(typeMessage = WsOutputMessageTypeEntity.RESPONSE_SUBSCRIBE, payload = "SUBSCRIBE_OK($channelName)"))
+            Mono.just(
+                WsOutputMessageEntity(
+                    typeMessage = WsOutputMessageTypeEntity.RESPONSE_SUBSCRIBE,
+                    payload = "SUBSCRIBE_OK($channelName)",
+                    code = 200
+                )
+            )
                 .map { wsOutputMessageMapper.toJson(it) }
                 .map(session::textMessage)
         )

@@ -25,7 +25,13 @@ class UnsubscribeUseCase(
         logger.info("Removing subscription conn = $connQueueName channel = $channelName")
 
         val sendResponseUnsubscribe = session.send(
-            Mono.just(WsOutputMessageEntity(typeMessage = WsOutputMessageTypeEntity.RESPONSE_UNSUBSCRIBE, payload = "UNSUBSCRIBE_OK($channelName)"))
+            Mono.just(
+                WsOutputMessageEntity(
+                    typeMessage = WsOutputMessageTypeEntity.RESPONSE_UNSUBSCRIBE,
+                    payload = "UNSUBSCRIBE_OK($channelName)",
+                    code = 200
+                )
+            )
                 .map { wsOutputMessageMapper.toJson(it) }
                 .map(session::textMessage)
         )
@@ -37,7 +43,11 @@ class UnsubscribeUseCase(
             .filter { it.payload == connQueueName }
             .doOnNext {
                 redisTemplate.opsForZSet().remove(channelName, internalMessageMapper.toJson(it)).subscribe()
-                logger.info("Subscription removed conn = $connQueueName channel = $channelName ${internalMessageMapper.toJson(it)}")
+                logger.info(
+                    "Subscription removed conn = $connQueueName channel = $channelName ${internalMessageMapper.toJson(
+                        it
+                    )}"
+                )
             }.then()
 
         return sendResponseUnsubscribe.and(removeSubscription).then()

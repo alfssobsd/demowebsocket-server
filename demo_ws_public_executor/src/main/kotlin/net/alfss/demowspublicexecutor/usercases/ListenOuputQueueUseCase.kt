@@ -31,7 +31,13 @@ class ListenOuputQueueUseCase(
                 when (it.typeMessage) {
                     InternalMessageTypeEntity.COMMAND_DISCONNECT -> {
                         session.send(
-                            Mono.just( WsOutputMessageEntity(typeMessage = WsOutputMessageTypeEntity.DISCONNECT, payload = "DISCONNECT"))
+                            Mono.just(
+                                WsOutputMessageEntity(
+                                    typeMessage = WsOutputMessageTypeEntity.DISCONNECT,
+                                    payload = "DISCONNECT",
+                                    code = 200
+                                )
+                            )
                                 .map { entity -> wsOutputMessageMapper.toJson(entity) }
                                 .map(session::textMessage)
                         ).subscribe()
@@ -39,7 +45,13 @@ class ListenOuputQueueUseCase(
                     }
                     InternalMessageTypeEntity.TEXT_MESSAGE ->
                         session.send(
-                            Mono.just( WsOutputMessageEntity(typeMessage = WsOutputMessageTypeEntity.DATA, payload = it.payload))
+                            Mono.just(
+                                WsOutputMessageEntity(
+                                    typeMessage = WsOutputMessageTypeEntity.DATA,
+                                    payload = it.payload,
+                                    code = 200
+                                )
+                            )
                                 .map { entity -> wsOutputMessageMapper.toJson(entity) }
                                 .map(session::textMessage)
                         ).subscribe()

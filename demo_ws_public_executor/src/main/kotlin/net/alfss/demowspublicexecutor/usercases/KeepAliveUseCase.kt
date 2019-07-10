@@ -29,7 +29,8 @@ class KeepAliveUseCase(
                     wsOutputMessageMapper.toJson(
                         WsOutputMessageEntity(
                             typeMessage = WsOutputMessageTypeEntity.PING,
-                            payload = "PING"
+                            payload = "PING",
+                            code = 200
                         )
                     )
                 }
