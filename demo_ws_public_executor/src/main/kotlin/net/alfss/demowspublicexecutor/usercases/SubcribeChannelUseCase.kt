@@ -87,6 +87,6 @@ class SubcribeChannelUseCase(
                 .map(session::textMessage)
         )
 
-        return readHistoryChannel.and(subscribeToChannel).and(sendResponseSubscribe).then()
+        return subscribeToChannel.and(readHistoryChannel).and(sendResponseSubscribe).then()
     }
 }
