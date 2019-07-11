@@ -21,6 +21,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation(project(":demo_ws_common"))
+    implementation(project(":demo_ws_push_executor"))
 }
 
 tasks.withType<KotlinCompile> {

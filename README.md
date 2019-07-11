@@ -1,3 +1,6 @@
+# Demo Websocket Server (proof of concept)
+
+
 Event (
   type: SUBSCRIBE, UNSUBSCRIBE, MESSAGE
   payload: Text
