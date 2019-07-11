@@ -1,12 +1,20 @@
 # Demo Websocket Server (proof of concept)
 
 
-Event (
-  type: SUBSCRIBE, UNSUBSCRIBE, MESSAGE
-  payload: Text
-)
+## Arch overview
+![Arch Oveview](/docs/overview.jpg)
 
-ChannelSubscribe (
-    queue: <connection uniq name>
-    createAt: timestamp - вермя когда когда была создана подписка 
-)
+## Describe main processes
+
+### Send message
+![Send message](/docs/send-message.jpg)
+
+### Subscribe to channel 
+![Subscribe to channel](/docs/subscribe-to-channel.jpg)
+
+
+## Avalible websocket request (for client) 
+
+
+
+## Avalible websocket response (for client)
