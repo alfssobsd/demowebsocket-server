@@ -8,3 +8,8 @@ app:
 
 server:
   port: ${app.port}
+
+management:
+  endpoint:
+    health:
+      show-details: always
